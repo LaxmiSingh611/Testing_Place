@@ -32,9 +32,12 @@ type SerializedProduct = {
 export function ProductForm({
   product,
   categories,
+  basePath = "/admin/products",
 }: {
   product?: SerializedProduct;
   categories: { id: string; name: string }[];
+  /** Lets seller pages reuse this exact form/action wiring with their own route prefix. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const {
@@ -81,7 +84,7 @@ export function ProductForm({
       return;
     }
     toast.success("Product created — now add some images");
-    router.push(`/admin/products/${result.productId}/edit`);
+    router.push(`${basePath}/${result.productId}/edit`);
   };
 
   return (

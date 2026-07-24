@@ -8,8 +8,17 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Please sign in" }, { status: 401 });
+  }
+
+  let sellerId: string | null = null;
+  if (session.user.role !== "ADMIN") {
+    const seller = await prisma.seller.findUnique({ where: { userId: session.user.id } });
+    if (!seller || !seller.isActive) {
+      return NextResponse.json({ error: "Seller access required" }, { status: 403 });
+    }
+    sellerId = seller.id;
   }
 
   const formData = await request.formData();
@@ -29,6 +38,9 @@ export async function POST(request: Request) {
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+  if (sellerId && product.sellerId !== sellerId) {
+    return NextResponse.json({ error: "You don't have access to this product" }, { status: 403 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

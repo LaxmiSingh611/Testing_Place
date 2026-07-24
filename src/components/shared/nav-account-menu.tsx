@@ -16,10 +16,12 @@ export function NavAccountMenu({
   isSignedIn,
   userName,
   isAdmin,
+  isSeller,
 }: {
   isSignedIn: boolean;
   userName: string | null;
   isAdmin: boolean;
+  isSeller: boolean;
 }) {
   if (!isSignedIn) {
     return (
@@ -45,6 +47,9 @@ export function NavAccountMenu({
         {isAdmin && (
           <DropdownMenuItem render={<Link href="/admin" />}>Admin dashboard</DropdownMenuItem>
         )}
+        <DropdownMenuItem render={<Link href={isSeller ? "/seller" : "/sell"} />}>
+          {isSeller ? "Seller Dashboard" : "Sell on bazaar.in"}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/" })}>Sign out</DropdownMenuItem>
       </DropdownMenuContent>

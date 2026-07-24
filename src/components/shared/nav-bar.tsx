@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Search, UserRound, ShieldCheck } from "lucide-react";
+import { Search, UserRound, ShieldCheck, Store } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getTopLevelCategories } from "@/server/queries/category.queries";
+import { getSellerByUserId } from "@/server/queries/seller.queries";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NavAccountMenu } from "@/components/shared/nav-account-menu";
@@ -9,6 +10,7 @@ import { CartTrigger } from "@/components/shared/cart-trigger";
 
 export async function NavBar() {
   const [session, categories] = await Promise.all([auth(), getTopLevelCategories()]);
+  const seller = session?.user ? await getSellerByUserId(session.user.id) : null;
 
   return (
     <header className="sticky top-0 z-40 w-full">
@@ -34,6 +36,7 @@ export async function NavBar() {
               isSignedIn={Boolean(session?.user)}
               userName={session?.user?.name ?? null}
               isAdmin={session?.user?.role === "ADMIN"}
+              isSeller={Boolean(seller)}
             />
             {session?.user?.role === "ADMIN" && (
               <Link
@@ -44,6 +47,13 @@ export async function NavBar() {
                 Admin
               </Link>
             )}
+            <Link
+              href={seller ? "/seller" : "/sell"}
+              className="hidden items-center gap-1 text-sm font-medium hover:text-amber-300 sm:flex"
+            >
+              <Store className="size-4" />
+              {seller ? "Seller Dashboard" : "Sell on bazaar.in"}
+            </Link>
             <CartTrigger />
           </div>
         </div>

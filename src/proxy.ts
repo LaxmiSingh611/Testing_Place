@@ -6,7 +6,8 @@ export default auth((req) => {
   const session = req.auth;
 
   const isAdminRoute = pathname.startsWith("/admin");
-  const isAccountRoute = pathname.startsWith("/account") || pathname.startsWith("/checkout");
+  const isAccountRoute =
+    pathname.startsWith("/account") || pathname.startsWith("/checkout") || pathname.startsWith("/seller");
 
   if (isAdminRoute) {
     if (!session?.user) {
@@ -29,5 +30,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*", "/checkout/:path*"],
+  matcher: ["/admin/:path*", "/account/:path*", "/checkout/:path*", "/seller/:path*"],
 };

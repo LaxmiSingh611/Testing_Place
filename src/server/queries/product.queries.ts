@@ -54,9 +54,14 @@ const CARD_SELECT = {
   images: { orderBy: { position: "asc" as const }, take: 1, select: { url: true } },
 };
 
+/** Excludes products belonging to a suspended seller from every storefront read path. */
+const SELLER_ACTIVE_FILTER: Prisma.ProductWhereInput = {
+  OR: [{ sellerId: null }, { seller: { isActive: true } }],
+};
+
 export async function getFeaturedProducts(limit = 8): Promise<ProductCard[]> {
   const products = await prisma.product.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...SELLER_ACTIVE_FILTER },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: CARD_SELECT,
@@ -70,7 +75,7 @@ export async function getProducts(
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = filters.pageSize ?? 12;
 
-  const where: Prisma.ProductWhereInput = { isActive: true };
+  const where: Prisma.ProductWhereInput = { isActive: true, ...SELLER_ACTIVE_FILTER };
 
   if (filters.categorySlug) {
     const category = await prisma.category.findUnique({
@@ -97,9 +102,12 @@ export async function getProducts(
     // in-memory — the catalog is small enough that this is simpler than a
     // hand-written raw-SQL join for category/price filtering.
     const ranked = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM "Product"
-      WHERE "isActive" = true AND "searchVector" @@ plainto_tsquery('english', ${filters.q})
-      ORDER BY ts_rank("searchVector", plainto_tsquery('english', ${filters.q})) DESC
+      SELECT p.id FROM "Product" p
+      LEFT JOIN "Seller" s ON s.id = p."sellerId"
+      WHERE p."isActive" = true
+        AND (p."sellerId" IS NULL OR s."isActive" = true)
+        AND p."searchVector" @@ plainto_tsquery('english', ${filters.q})
+      ORDER BY ts_rank(p."searchVector", plainto_tsquery('english', ${filters.q})) DESC
       LIMIT 500
     `;
     const rankedIds = ranked.map((r) => r.id);
@@ -163,6 +171,7 @@ export async function getProductBySlug(slug: string) {
     include: {
       images: { orderBy: { position: "asc" } },
       category: { select: { id: true, name: true, slug: true } },
+      seller: { select: { storeName: true, storeSlug: true, isActive: true } },
       reviews: {
         orderBy: { createdAt: "desc" },
         take: 10,
@@ -171,7 +180,8 @@ export async function getProductBySlug(slug: string) {
     },
   });
 
-  if (!product) return null;
+  // A suspended seller's products shouldn't be reachable even by direct slug URL.
+  if (!product || (product.seller && !product.seller.isActive)) return null;
 
   const ratingAgg = await prisma.review.aggregate({
     where: { productId: product.id },
@@ -189,6 +199,7 @@ export async function getProductBySlug(slug: string) {
     stock: product.stock,
     sku: product.sku,
     category: product.category,
+    seller: product.seller ? { storeName: product.seller.storeName, storeSlug: product.seller.storeSlug } : null,
     images: product.images.map((img) => ({ id: img.id, url: img.url, altText: img.altText })),
     reviews: product.reviews.map((r) => ({
       id: r.id,
@@ -266,7 +277,7 @@ export async function getRelatedProducts(
   limit = 6,
 ): Promise<ProductCard[]> {
   const products = await prisma.product.findMany({
-    where: { categoryId, isActive: true, id: { not: excludeProductId } },
+    where: { categoryId, isActive: true, id: { not: excludeProductId }, ...SELLER_ACTIVE_FILTER },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: CARD_SELECT,

@@ -5,8 +5,6 @@ import path from "node:path";
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? "public/uploads/products";
 const UPLOADS_PUBLIC_PATH = process.env.UPLOADS_PUBLIC_PATH ?? "/uploads/products";
 
-const MAX_DIMENSION = 1600;
-
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -14,35 +12,20 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "image/avif": "avif",
 };
 
-let sharpLoadFailed = false;
-
 /**
- * Saves an uploaded product image to local disk (dev-local stand-in for S3),
- * re-encoding to webp and capping dimensions via sharp when its native binding
- * is available. Falls back to storing the original bytes untouched if sharp's
- * native module can't load in this environment (e.g. a missing platform
- * binary), so uploads still work without image optimization.
+ * Saves an uploaded product image to local disk (dev-local stand-in for S3).
+ * Deliberately stores the original bytes as-is rather than re-encoding via sharp:
+ * sharp's native binding fails to load in this environment (ERR_DLOPEN_FAILED),
+ * and — because Turbopack eagerly pre-resolves dynamic imports at compile time,
+ * outside of any try/catch around the actual call — a dynamic `import("sharp")`
+ * here crashes the whole dev server on first compile rather than failing
+ * gracefully at call time. If a future environment has a working sharp install,
+ * resizing/webp conversion can be reintroduced behind an explicit opt-in.
  * Swappable later for an S3 client behind the same (buffer) => (publicUrl) signature.
  */
 export async function saveProductImage(buffer: Buffer, mimeType = "image/jpeg"): Promise<string> {
   const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), UPLOADS_DIR);
   await mkdir(dir, { recursive: true });
-
-  if (!sharpLoadFailed) {
-    try {
-      const sharp = (await import("sharp")).default;
-      const filename = `${randomUUID()}.webp`;
-      const filePath = path.join(dir, filename);
-      await sharp(buffer)
-        .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toFile(filePath);
-      return `${UPLOADS_PUBLIC_PATH}/${filename}`;
-    } catch (error) {
-      sharpLoadFailed = true;
-      console.warn("sharp unavailable, storing uploaded images without optimization:", error);
-    }
-  }
 
   const ext = MIME_EXTENSIONS[mimeType] ?? "jpg";
   const filename = `${randomUUID()}.${ext}`;

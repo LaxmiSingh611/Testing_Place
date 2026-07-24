@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import type { Metadata } from "next";
-import { Star } from "lucide-react";
+import { Star, Store } from "lucide-react";
 import { getProductBySlug, getRelatedProducts } from "@/server/queries/product.queries";
 import { ProductGallery } from "@/components/storefront/product-gallery";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
@@ -74,6 +75,16 @@ export default async function ProductDetailPage({
           </p>
 
           <AddToCartButton productId={product.id} stock={product.stock} />
+
+          {product.seller && (
+            <p className="flex items-center gap-1.5 text-sm text-slate-500">
+              <Store className="size-4" />
+              Sold by{" "}
+              <Link href={`/sellers/${product.seller.storeSlug}`} className="font-medium text-amber-600 hover:underline">
+                {product.seller.storeName}
+              </Link>
+            </p>
+          )}
 
           <div className="border-t pt-4">
             <h2 className="mb-2 font-medium text-slate-900">Product description</h2>

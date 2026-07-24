@@ -175,6 +175,67 @@ async function main() {
     }
   }
 
+  const sellerPasswordHash = await bcrypt.hash("Seller@12345", 10);
+  const sellerUser = await prisma.user.upsert({
+    where: { email: "seller@bazaar.test" },
+    update: {},
+    create: {
+      name: "Nimbus Store Owner",
+      email: "seller@bazaar.test",
+      passwordHash: sellerPasswordHash,
+      role: "USER",
+    },
+  });
+  await prisma.cart.upsert({
+    where: { userId: sellerUser.id },
+    update: {},
+    create: { userId: sellerUser.id },
+  });
+
+  const demoSeller = await prisma.seller.upsert({
+    where: { userId: sellerUser.id },
+    update: {},
+    create: {
+      userId: sellerUser.id,
+      storeName: "Nimbus Electronics",
+      storeSlug: "nimbus-electronics",
+      description: "Independent seller specializing in mobile accessories and audio gear.",
+    },
+  });
+
+  const SELLER_PRODUCTS: Array<{ title: string; price: number; compareAtPrice?: number; stock: number }> = [
+    { title: "Nimbus SoundBuds Pro (ANC Wireless Earbuds)", price: 3499, compareAtPrice: 4499, stock: 55 },
+    { title: "Nimbus Fast Charger 65W GaN", price: 1799, stock: 80 },
+    { title: "Nimbus Braided USB-C Cable (2m)", price: 499, compareAtPrice: 699, stock: 150 },
+  ];
+
+  let sellerProductCount = 0;
+  for (const p of SELLER_PRODUCTS) {
+    const slug = slugify(p.title);
+    const product = await prisma.product.upsert({
+      where: { slug },
+      update: { price: p.price, compareAtPrice: p.compareAtPrice ?? null, stock: p.stock, sellerId: demoSeller.id },
+      create: {
+        title: p.title,
+        slug,
+        description: `${p.title} — sold and shipped by ${demoSeller.storeName}.`,
+        price: p.price,
+        compareAtPrice: p.compareAtPrice ?? null,
+        stock: p.stock,
+        categoryId: mobiles.id,
+        sellerId: demoSeller.id,
+      },
+    });
+
+    const existingImages = await prisma.productImage.count({ where: { productId: product.id } });
+    if (existingImages === 0) {
+      await prisma.productImage.createMany({
+        data: [0, 1].map((i) => ({ productId: product.id, url: placeholderImage(slug, i), position: i })),
+      });
+    }
+    sellerProductCount += 1;
+  }
+
   const address = await prisma.address.upsert({
     where: { id: "seed-demo-address" },
     update: {},
@@ -295,8 +356,9 @@ async function main() {
   }
 
   console.log(
-    `Seeded: 2 users (admin@bazaar.test / user@bazaar.test, password pattern Role@12345), ` +
-      `6 categories, ${productCount} products, 1 address, ${orderCount} demo orders, ${reviewCount} reviews.`,
+    `Seeded: 3 users (admin@bazaar.test / user@bazaar.test / seller@bazaar.test, password pattern Role@12345), ` +
+      `6 categories, ${productCount} platform products, 1 demo seller with ${sellerProductCount} products, ` +
+      `1 address, ${orderCount} demo orders, ${reviewCount} reviews.`,
   );
 }
 

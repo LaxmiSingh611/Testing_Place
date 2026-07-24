@@ -49,8 +49,22 @@ model User {
   cart      Cart?
   orders    Order[]
   reviews   Review[]
+  seller    Seller?
 
   @@index([role])
+}
+
+model Seller {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeName   String
+  storeSlug   String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Category {
@@ -81,6 +95,8 @@ model Product {
   isActive       Boolean        @default(true)
   categoryId     String
   category       Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sellerId       String?
+  seller         Seller?        @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   images         ProductImage[]
   cartItems      CartItem[]
   orderItems     OrderItem[]
@@ -94,6 +110,7 @@ model Product {
   @@index([isActive])
   @@index([price])
   @@index([createdAt])
+  @@index([sellerId])
 }
 
 model ProductImage {

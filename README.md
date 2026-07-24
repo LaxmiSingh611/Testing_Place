@@ -49,12 +49,19 @@ This project intentionally runs **without Docker** — Postgres is a native loca
 
 ## Seeded accounts
 
-| Role  | Email               | Password      |
-| ----- | -------------------- | ------------- |
-| Admin | admin@bazaar.test    | Admin@12345   |
-| User  | user@bazaar.test     | User@12345    |
+| Role   | Email               | Password      |
+| ------ | -------------------- | ------------- |
+| Admin  | admin@bazaar.test    | Admin@12345   |
+| User   | user@bazaar.test     | User@12345    |
+| Seller | seller@bazaar.test   | Seller@12345  |
 
-The seed also creates 6 categories (2 with subcategories), 18 products (including one out-of-stock item), a demo shipping address, one order in **every** order status for the demo user, and a few product reviews — enough to exercise pagination, low-stock warnings, and every admin order-status view without placing new orders first.
+The seed also creates 6 categories (2 with subcategories), 18 platform products (including one out-of-stock item), a demo seller ("Nimbus Electronics") with 3 of their own products, a demo shipping address, one order in **every** order status for the demo user, and a few product reviews — enough to exercise pagination, low-stock warnings, and every admin/seller order-status view without placing new orders first.
+
+## Sellers (marketplace)
+
+Any signed-in customer can self-serve apply to become a seller at `/sell` (store name + URL slug + description, approved instantly — no admin review queue). Once approved they get their own console at `/seller`: a dashboard (revenue, orders, low stock), product management (identical create/edit/image-upload flow to the admin panel, scoped to their own listings), and an order view scoped to orders containing their products. Their products appear on the public storefront exactly like platform products, with a "Sold by {store}" link on the PDP to a public storefront page at `/sellers/{slug}`.
+
+Known simplification: order status is still one value per whole order (not per seller/per item). If an order contains items from more than one seller, either seller can advance it forward, but only an admin can cancel/refund it (since that restocks every item in the order, not just theirs). The overwhelming majority of orders in this seed data and typical usage are single-seller, so this only matters for mixed carts.
 
 ## Smoke test
 
